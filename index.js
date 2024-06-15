@@ -1,83 +1,96 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const redis = require('redis');
-
-// Create Express application
-const app = express();
-
-// Port for the web server
-const PORT = 3000;
-
-// Configure body-parser for JSON
-app.use(bodyParser.json());
-
-// Create a Redis client
-const redisClient = redis.createClient({
-    host: 'localhost',
-    port: 6379
-});
+const Redis = require('ioredis');
 
 // Connect to Redis
-redisClient.on('connect', () => {
-    console.log('Connected to Redis');
+const redis = new Redis({
+    host: '127.0.0.1', // Replace with your Redis host
+    port: 6379         // Replace with your Redis port
+  });
+
+const app = express();
+const port = 3000;
+
+// Middleware to parse JSON bodies
+app.use(bodyParser.json());
+
+// // POST endpoint to store data in Redis
+app.post('/store', async (req, res) => {
+  const { key, value } = req.body;
+
+  try {
+    // Store data in Redis
+    await redis.set(key, JSON.stringify(value));
+    res.send({ message: 'Data stored in Redis', key, value });
+  } catch (error) {
+    console.error('Error storing data in Redis:', error);
+    res.status(500).send({ message: 'Error storing data in Redis' });
+  }
 });
 
-redisClient.on('error', (err) => {
-    console.log('Redis error: ' + err);
-});
-
-// Basic route for the home page
-app.get('/', (req, res) => {
-    res.send('Welcome to the Redis CRUD Application');
-});
-
-// CREATE: Add new data to Redis
-app.post('/add', (req, res) => {
-    const { key, value } = req.body;
-    redisClient.set(key, JSON.stringify(value), 'EX', 3600, (err, reply) => {
-        if (err) return res.status(500).send('Error setting key in Redis');
-        res.send(`Key ${key} set with value ${JSON.stringify(value)}`);
-    });
-});
-
-// READ: Get data from Redis
-app.get('/get/:key', (req, res) => {
+// GET endpoint to retrieve data from Redis
+app.get('/fetch/:key', async (req, res) => {
     const { key } = req.params;
-    redisClient.get(key, (err, reply) => {
-        if (err) return res.status(500).send('Error retrieving key from Redis');
-        if (reply) res.send({ key, value: JSON.parse(reply) });
-        else res.status(404).send('Key not found');
-    });
-});
+    try {
+      const value = await redis.get(key);
+      console.log(`Attempting to parse value: ${value}`); // Log the exact string being parsed
+  
+      if (value) {
+        res.send({ key, value: JSON.parse(value) });
+      } else {
+        res.status(404).send({ message: 'Key not found in Redis' });
+      }
+    } catch (error) {
+      console.error('Error fetching data from Redis:', error);
+      res.status(500).send({ message: 'Error fetching data from Redis', error: error.message });
+    }
+  });
 
-// UPDATE: Update data in Redis
-app.put('/update/:key', (req, res) => {
-    const { key } = req.params;
-    const value = req.body;
-    redisClient.exists(key, (err, reply) => {
-        if (err) return res.status(500).send('Error checking for key in Redis');
-        if (reply === 1) {
-            redisClient.set(key, JSON.stringify(value), 'EX', 3600, (err, reply) => {
-                if (err) return res.status(500).send('Error setting key in Redis');
-                res.send(`Key ${key} updated with value ${JSON.stringify(value)}`);
-            });
-        } else {
-            res.status(404).send('Key not found');
+// GET endpoint to retrieve all data from Redis
+app.get('/fetchall', async (req, res) => {
+    try {
+      const keys = await redis.keys('*');
+      const allData = {};
+  
+      for (const key of keys) {
+        const value = await redis.get(key);
+        console.log(`Key ${key} fetched with value:`, value); // Log fetched value
+  
+        try {
+          allData[key] = JSON.parse(value);
+        } catch (parseError) {
+          console.error(`Error parsing JSON for key ${key}:`, parseError);
+          console.error(`Raw value: ${value}`);
+          // Optionally keep the raw value or skip
+          allData[key] = value; // Store raw value if parsing fails, to help with debugging
         }
-    });
-});
+      }
+  
+      res.send({ allData });
+    } catch (error) {
+      console.error('Error fetching all data from Redis:', error);
+      res.status(500).send({ message: 'Error fetching all data from Redis', error: error.message });
+    }
+  });
 
-// DELETE: Delete data from Redis
-app.delete('/delete/:key', (req, res) => {
-    const { key } = req.params;
-    redisClient.del(key, (err, reply) => {
-        if (err) return res.status(500).send('Error deleting key from Redis');
-        if (reply === 1) res.send(`Key ${key} deleted`);
-        else res.status(404).send('Key not found');
-    });
-});
+// redis.set("key", "devendra"); // Returns a promise which resolves to "OK" when the command succeeds.
+
+// // ioredis supports the node.js callback style
+// redis.get("name", (err, result) => {
+//   if (err) {
+//     console.error(err);
+//   } else {
+//     console.log(result); // Prints "value"
+//   }
+// });
+
+// // Or ioredis returns a promise if the last argument isn't a function
+// redis.get("name").then((result) => {
+//   console.log(result); // Prints "value"
+// });
+
 
 // Start the Express server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
