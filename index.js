@@ -9,42 +9,11 @@ const redis = new Redis({
   });
 
 const app = express();
+
 const port = 3000;
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
-
-// // POST endpoint to store data in Redis
-app.post('/store', async (req, res) => {
-  const { key, value } = req.body;
-
-  try {
-    // Store data in Redis
-    await redis.set(key, JSON.stringify(value));
-    res.send({ message: 'Data stored in Redis', key, value });
-  } catch (error) {
-    console.error('Error storing data in Redis:', error);
-    res.status(500).send({ message: 'Error storing data in Redis' });
-  }
-});
-
-// GET endpoint to retrieve data from Redis
-app.get('/fetch/:key', async (req, res) => {
-    const { key } = req.params;
-    try {
-      const value = await redis.get(key);
-      console.log(`Attempting to parse value: ${value}`); // Log the exact string being parsed
-  
-      if (value) {
-        res.send({ key, value: JSON.parse(value) });
-      } else {
-        res.status(404).send({ message: 'Key not found in Redis' });
-      }
-    } catch (error) {
-      console.error('Error fetching data from Redis:', error);
-      res.status(500).send({ message: 'Error fetching data from Redis', error: error.message });
-    }
-  });
 
 // GET endpoint to retrieve all data from Redis
 app.get('/fetchall', async (req, res) => {
@@ -70,6 +39,26 @@ app.get('/fetchall', async (req, res) => {
     } catch (error) {
       console.error('Error fetching all data from Redis:', error);
       res.status(500).send({ message: 'Error fetching all data from Redis', error: error.message });
+    }
+  });
+
+// GET endpoint to retrieve specific data from Redis
+app.get('/fetch/:key', async (req, res) => {
+    const { key } = req.params;
+    try {
+      const value = await redis.get(key);
+      console.log(value)
+      console.log(`Attempting to parse value: ${value}`); // Log the exact string being parsed
+  
+      if (value) {
+        res.setHeader('Content-Type', 'application/json');
+        res.send(JSON.stringify({key:value}));
+      } else {
+        res.status(404).send({ message: 'Key not found in Redis' });
+      }
+    } catch (error) {
+      console.error('Error fetching data from Redis:', error);
+      res.status(500).send({ message: 'Error fetching data from Redis', error: error.message });
     }
   });
 
