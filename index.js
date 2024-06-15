@@ -14,6 +14,7 @@ const port = 3000;
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }))
 
 // GET endpoint to retrieve all data from Redis
 app.get('/fetchall', async (req, res) => {
@@ -23,8 +24,7 @@ app.get('/fetchall', async (req, res) => {
   
       for (const key of keys) {
         const value = await redis.get(key);
-        console.log(`Key ${key} fetched with value:`, value); // Log fetched value
-  
+
         try {
           allData[key] = JSON.parse(value);
         } catch (parseError) {
@@ -47,9 +47,7 @@ app.get('/fetch/:key', async (req, res) => {
     const { key } = req.params;
     try {
       const value = await redis.get(key);
-      console.log(value)
-      console.log(`Attempting to parse value: ${value}`); // Log the exact string being parsed
-  
+      
       if (value) {
         res.setHeader('Content-Type', 'application/json');
         res.send(JSON.stringify({key:value}));
@@ -59,6 +57,21 @@ app.get('/fetch/:key', async (req, res) => {
     } catch (error) {
       console.error('Error fetching data from Redis:', error);
       res.status(500).send({ message: 'Error fetching data from Redis', error: error.message });
+    }
+  });
+
+  app.post('/store', async (req, res) => {
+    const { key, value } = req.body;
+    console.log('Request body:', req.body);
+    if (typeof key === 'undefined' || typeof value === 'undefined') {
+        return res.status(400).send({ message: 'Key and value are required' });
+    }
+    try {
+      await redis.set(key, JSON.stringify(value));
+      res.send({ message: 'Data stored in Redis', key, value });
+    } catch (error) {
+      console.error('Error storing data in Redis:', error);
+      res.status(500).send({ message: 'Error storing data in Redis', error: error.message });
     }
   });
 
