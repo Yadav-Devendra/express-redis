@@ -2,21 +2,16 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const Redis = require('ioredis');
 
-// Connect to Redis
 const redis = new Redis({
     host: '127.0.0.1', // Replace with your Redis host
     port: 6379         // Replace with your Redis port
   });
 
 const app = express();
-
 const port = 3000;
-
-// Middleware to parse JSON bodies
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }))
 
-// GET endpoint to retrieve all data from Redis
 app.get('/fetchall', async (req, res) => {
     try {
       const keys = await redis.keys('*');
@@ -42,7 +37,6 @@ app.get('/fetchall', async (req, res) => {
     }
   });
 
-// GET endpoint to retrieve specific data from Redis
 app.get('/fetch/:key', async (req, res) => {
     const { key } = req.params;
     try {
@@ -75,7 +69,31 @@ app.get('/fetch/:key', async (req, res) => {
     }
   });
 
-// Start the Express server
+app.put('/update/:key', async (req, res) => {
+  const { key } = req.params;
+  const { value } = req.body;
+
+  try {
+    await redis.set(key, JSON.stringify(value));
+    res.send({ message: `Data for key '${key}' updated successfully` });
+  } catch (error) {
+    console.error('Error updating data in Redis:', error);
+    res.status(500).send({ message: 'Error updating data in Redis', error: error.message });
+  }
+});
+
+app.delete('/delete/:key', async (req, res) => {
+  const { key } = req.params;
+
+  try {
+    await redis.del(key);
+    res.send({ message: `Data for key '${key}' deleted successfully` });
+  } catch (error) {
+    console.error('Error deleting data from Redis:', error);
+    res.status(500).send({ message: 'Error deleting data from Redis', error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
