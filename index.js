@@ -75,23 +75,6 @@ app.get('/fetch/:key', async (req, res) => {
     }
   });
 
-// redis.set("key", "devendra"); // Returns a promise which resolves to "OK" when the command succeeds.
-
-// // ioredis supports the node.js callback style
-// redis.get("name", (err, result) => {
-//   if (err) {
-//     console.error(err);
-//   } else {
-//     console.log(result); // Prints "value"
-//   }
-// });
-
-// // Or ioredis returns a promise if the last argument isn't a function
-// redis.get("name").then((result) => {
-//   console.log(result); // Prints "value"
-// });
-
-
 // Start the Express server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
